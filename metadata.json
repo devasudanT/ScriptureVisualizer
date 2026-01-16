@@ -1,0 +1,5 @@
+{
+  "name": "ScriptureVisualizer",
+  "description": "A minimalist tool to transform Bible verses into high-quality, cinematic AI image generation prompts with historical context and artistic symbolism.",
+  "requestFramePermissions": []
+}
