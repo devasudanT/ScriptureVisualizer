@@ -19,13 +19,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (inputValue.length > 0) {
-      // Find books that start with the current input
       const filtered = BIBLE_BOOKS
         .filter(book => book.name.toLowerCase().startsWith(inputValue.toLowerCase()))
         .map(book => book.name)
         .slice(0, 5);
       
-      // Only show suggestions if the current input isn't exactly matching a single suggestion already
       const exactMatch = filtered.length === 1 && filtered[0].toLowerCase() === inputValue.trim().toLowerCase();
       
       if (filtered.length > 0 && !exactMatch) {
@@ -92,9 +90,12 @@ const App: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Create 3 distinct, high-quality AI image generation prompts for the Bible verse: "${inputValue}". 
-        Styles: 1. Cinematic Epic, 2. Historical Realism, 3. Ethereal Symbolism.
-        Requirements: Max 800 characters per prompt. Include lighting, camera lens (e.g. 35mm, 85mm), environment, and atmosphere. Focus on biblical accuracy and powerful imagery.`,
+        contents: `Generate 3 distinct image prompts for the Bible verse: "${inputValue}".
+        Styles required:
+        1. Literal Scene (Cinematic, realistic, detailed biblical setting)
+        2. Literal Scene (Alternative realistic camera angle or mood)
+        3. Sims 3D Style (Stylized 3D render in the bright, colorful aesthetic of The Sims 3/4 video games)
+        Return ONLY the prompts in JSON format. Do not include explanations.`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -106,10 +107,9 @@ const App: React.FC = () => {
                   type: Type.OBJECT,
                   properties: {
                     style: { type: Type.STRING },
-                    content: { type: Type.STRING },
-                    explanation: { type: Type.STRING }
+                    content: { type: Type.STRING }
                   },
-                  required: ["style", "content", "explanation"]
+                  required: ["style", "content"]
                 }
               }
             },
@@ -141,18 +141,16 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#fcfcfc] text-slate-900 px-4 py-12 md:py-20">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <header className="text-center mb-16 space-y-4">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-50 rounded-full mb-4 shadow-sm border border-amber-100">
             <BookOpen className="w-8 h-8 text-amber-600" />
           </div>
           <h1 className="serif text-4xl md:text-5xl font-semibold tracking-tight text-slate-800">ScriptureVisualizer</h1>
           <p className="text-slate-500 text-lg max-w-xl mx-auto font-light">
-            Transform sacred texts into cinematic masterpieces for AI image generation.
+            Fast generation of literal and Sims-style image prompts.
           </p>
         </header>
 
-        {/* Search Section */}
         <div className="relative max-w-2xl mx-auto mb-20" ref={suggestionRef}>
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-grow group">
@@ -168,9 +166,8 @@ const App: React.FC = () => {
                 onFocus={() => inputValue.length > 0 && suggestions.length > 0 && setShowSuggestions(true)}
               />
               
-              {/* Suggestions Dropdown */}
               {showSuggestions && (
-                <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden">
                   {suggestions.map((book, index) => (
                     <button
                       key={book}
@@ -209,90 +206,65 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Results Section */}
-        <div className="space-y-8 pb-20">
+        <div className="space-y-6 pb-20">
           {results.length > 0 ? (
-            <div className="grid grid-cols-1 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {results.map((prompt) => (
                 <div
                   key={prompt.id}
                   onClick={() => copyToClipboard(prompt.content, prompt.id)}
-                  className="group relative bg-white border border-slate-100 rounded-2xl p-8 shadow-sm hover:shadow-md hover:border-amber-200 transition-all cursor-pointer overflow-hidden ring-1 ring-slate-50"
+                  className="group relative bg-white border border-slate-100 rounded-xl p-6 shadow-sm hover:shadow-md hover:border-amber-200 transition-all cursor-pointer overflow-hidden"
                 >
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700 bg-amber-100/50 px-3 py-1 rounded-full">
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700 bg-amber-100/50 px-2.5 py-1 rounded-md">
                       {prompt.style}
                     </span>
-                    <div className="flex items-center gap-2 text-slate-400 group-hover:text-amber-600 transition-colors">
+                    <div className="flex items-center gap-1.5 text-slate-400 group-hover:text-amber-600 transition-colors">
                       {copiedId === prompt.id ? (
-                        <Check className="w-4 h-4 text-green-500" />
+                        <Check className="w-3.5 h-3.5 text-green-500" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5" />
                       )}
-                      <span className="text-xs font-semibold uppercase tracking-tighter">
-                        {copiedId === prompt.id ? 'Copied' : 'Copy Prompt'}
+                      <span className="text-[10px] font-bold uppercase tracking-tight">
+                        {copiedId === prompt.id ? 'Copied' : 'Copy'}
                       </span>
                     </div>
                   </div>
                   
-                  <p className="serif text-xl md:text-2xl text-slate-800 leading-relaxed mb-6 group-hover:text-slate-900 transition-colors">
+                  <p className="text-lg text-slate-800 leading-relaxed font-medium">
                     {prompt.content}
                   </p>
-                  
-                  <div className="pt-6 border-t border-slate-100">
-                    <p className="text-slate-500 text-sm leading-relaxed italic opacity-80">
-                      <span className="font-bold text-slate-400 uppercase text-[9px] tracking-[0.2em] not-italic mr-3">Artistic Intent</span>
-                      {prompt.explanation}
-                    </p>
-                  </div>
 
-                  {/* Visual Copy Feedback Overlay */}
-                  <div className={`absolute inset-0 bg-white/80 backdrop-blur-[2px] flex items-center justify-center transition-all duration-300 pointer-events-none ${copiedId === prompt.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                    <div className="bg-slate-900 text-white px-8 py-4 rounded-2xl flex items-center gap-3 shadow-2xl scale-110">
-                      <div className="bg-green-500 rounded-full p-1">
-                        <Check className="w-4 h-4 text-white" />
-                      </div>
-                      <span className="font-semibold tracking-tight">Copied to clipboard</span>
+                  <div className={`absolute inset-0 bg-white/90 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 pointer-events-none ${copiedId === prompt.id ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="bg-slate-900 text-white px-6 py-2.5 rounded-full flex items-center gap-2 shadow-xl">
+                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="font-semibold text-sm">Copied Prompt</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : !isGenerating && (
-            <div className="text-center py-24 border-2 border-dashed border-slate-100 rounded-[2rem] bg-white/50">
-              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-                <Sparkles className="w-8 h-8 text-slate-200" />
+            <div className="text-center py-20 border-2 border-dashed border-slate-100 rounded-[2rem] bg-white/50">
+              <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-6 h-6 text-slate-200" />
               </div>
-              <h3 className="text-slate-400 font-medium text-lg mb-2">Ready for inspiration?</h3>
-              <p className="text-slate-300 text-sm max-w-xs mx-auto font-light">
-                Type a Bible book name above to see suggestions, then press enter to generate prompts.
-              </p>
+              <p className="text-slate-400 text-sm">Enter a verse and get instant prompts.</p>
             </div>
           )}
 
           {isGenerating && (
-            <div className="space-y-8">
+            <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white border border-slate-100 rounded-2xl p-8 h-56 animate-pulse shadow-sm">
-                  <div className="flex justify-between mb-8">
-                    <div className="h-6 w-32 bg-slate-100 rounded-full" />
-                    <div className="h-6 w-24 bg-slate-50 rounded-full" />
-                  </div>
-                  <div className="space-y-4">
-                    <div className="h-4 w-full bg-slate-50 rounded" />
-                    <div className="h-4 w-11/12 bg-slate-50 rounded" />
-                    <div className="h-4 w-4/5 bg-slate-50 rounded" />
-                  </div>
-                </div>
+                <div key={i} className="bg-white border border-slate-100 rounded-xl p-6 h-32 animate-pulse" />
               ))}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="text-center border-t border-slate-100 pt-10 mt-12">
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em]">
-            Curated Cinematic Theology
+        <footer className="text-center border-t border-slate-100 pt-8 mt-12">
+          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-[0.4em]">
+            Literal & Sims 3D Variants
           </p>
         </footer>
       </div>
