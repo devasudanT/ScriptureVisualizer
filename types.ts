@@ -6,6 +6,7 @@ export interface GeneratedPrompt {
 }
 
 export interface PromptResponse {
+  verseText: string;
   prompts: {
     style: string;
     content: string;

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Search, Copy, Check, Sparkles, BookOpen, ChevronRight } from 'lucide-react';
+import { Search, Copy, Check, Sparkles, BookOpen, ChevronRight, Quote } from 'lucide-react';
 import { BIBLE_BOOKS } from './constants';
 import { GeneratedPrompt, PromptResponse } from './types';
 
@@ -11,6 +11,8 @@ const App: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedPrompt[]>([]);
+  const [verseText, setVerseText] = useState<string | null>(null);
+  const [currentReference, setCurrentReference] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -84,41 +86,53 @@ const App: React.FC = () => {
 
     setIsGenerating(true);
     setResults([]);
+    setVerseText(null);
+    setCurrentReference(null);
     setShowSuggestions(false);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Generate 3 distinct image prompts for the Bible verse: "${inputValue}".
+        contents: `Fetch the full text for the Bible verse: "${inputValue}". 
+        
+        1. Identify 2 or 3 main context words that capture the essence of the verse. 
+        2. Generate 3 distinct image prompts that provide a literal visual scene accurately representing the verse context.
+        3. STRICT REQUIREMENT: Do not include any text, typography, or written words within the generated image prompts.
+        4. In the "verseText" and the "content" of each prompt, wrap the 2-3 chosen keywords in double asterisks like **keyword** to highlight them.
+        
         Styles required:
-        1. Literal Scene (Cinematic, realistic, detailed biblical setting)
-        2. Literal Scene (Alternative realistic camera angle or mood)
-        3. Sims 3D Style (Stylized 3D render in the bright, colorful aesthetic of The Sims 3/4 video games)
-        Return ONLY the prompts in JSON format. Do not include explanations.`,
+        - Literal Scene (Cinematic, realistic, detailed biblical setting, no text in image)
+        - Literal Scene (Alternative realistic camera angle or mood, no text in image)
+        - Sims 3D Style (Stylized 3D render in the bright, colorful aesthetic of The Sims 3/4 video games, no text in image)
+        
+        Return ONLY the results in JSON format.`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
+              verseText: { type: Type.STRING, description: "The full text of the verse with keywords highlighted with **." },
               prompts: {
                 type: Type.ARRAY,
                 items: {
                   type: Type.OBJECT,
                   properties: {
                     style: { type: Type.STRING },
-                    content: { type: Type.STRING }
+                    content: { type: Type.STRING, description: "The prompt text with keywords highlighted with **. Must not request text in the image." }
                   },
                   required: ["style", "content"]
                 }
               }
             },
-            required: ["prompts"]
+            required: ["verseText", "prompts"]
           }
         }
       });
 
-      const data: PromptResponse = JSON.parse(response.text || '{"prompts":[]}');
+      const data: PromptResponse = JSON.parse(response.text || '{"verseText": "", "prompts":[]}');
+      setVerseText(data.verseText);
+      setCurrentReference(inputValue.trim());
       const formattedResults: GeneratedPrompt[] = data.prompts.map((p, i) => ({
         id: `prompt-${i}`,
         ...p
@@ -133,9 +147,25 @@ const App: React.FC = () => {
   };
 
   const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
+    const cleanText = text.replace(/\*\*/g, '');
+    navigator.clipboard.writeText(cleanText);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const renderHighlightedText = (text: string) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <span key={i} className="font-bold text-amber-600 drop-shadow-[0_0.5px_0.5px_rgba(251,191,36,0.1)]">
+            {part.slice(2, -2)}
+          </span>
+        );
+      }
+      return part;
+    });
   };
 
   return (
@@ -147,7 +177,7 @@ const App: React.FC = () => {
           </div>
           <h1 className="serif text-4xl md:text-5xl font-semibold tracking-tight text-slate-800">ScriptureVisualizer</h1>
           <p className="text-slate-500 text-lg max-w-xl mx-auto font-light">
-            Fast generation of literal and Sims-style image prompts.
+            Pure visual imagery from sacred texts. No text, just scene.
           </p>
         </header>
 
@@ -206,9 +236,24 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="space-y-6 pb-20">
+        <div className="space-y-10 pb-20">
+          {verseText && (
+            <div className="animate-in fade-in slide-in-from-top-4 duration-500 bg-white border border-slate-100 rounded-2xl p-8 shadow-sm text-center relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-400 opacity-20 group-hover:opacity-100 transition-opacity" />
+              <Quote className="w-10 h-10 text-amber-100 absolute top-4 left-4 -scale-x-100" />
+              <div className="relative z-10">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-600/60 mb-4">Scripture Passage</h3>
+                <p className="serif italic text-2xl md:text-3xl text-slate-700 leading-relaxed max-w-2xl mx-auto">
+                  "{renderHighlightedText(verseText)}"
+                </p>
+                <p className="mt-4 font-bold text-slate-400 uppercase text-xs tracking-widest">— {currentReference}</p>
+              </div>
+            </div>
+          )}
+
           {results.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <h4 className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-400 text-center mb-2">Literal Image Prompts</h4>
               {results.map((prompt) => (
                 <div
                   key={prompt.id}
@@ -232,7 +277,7 @@ const App: React.FC = () => {
                   </div>
                   
                   <p className="text-lg text-slate-800 leading-relaxed font-medium">
-                    {prompt.content}
+                    {renderHighlightedText(prompt.content)}
                   </p>
 
                   <div className={`absolute inset-0 bg-white/90 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 pointer-events-none ${copiedId === prompt.id ? 'opacity-100' : 'opacity-0'}`}>
@@ -249,12 +294,13 @@ const App: React.FC = () => {
               <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-6 h-6 text-slate-200" />
               </div>
-              <p className="text-slate-400 text-sm">Enter a verse and get instant prompts.</p>
+              <p className="text-slate-400 text-sm">Enter a verse for literal visual prompts without text elements.</p>
             </div>
           )}
 
           {isGenerating && (
             <div className="space-y-4">
+              <div className="bg-white border border-slate-100 rounded-2xl p-8 h-48 animate-pulse mb-6" />
               {[1, 2, 3].map((i) => (
                 <div key={i} className="bg-white border border-slate-100 rounded-xl p-6 h-32 animate-pulse" />
               ))}
@@ -264,7 +310,7 @@ const App: React.FC = () => {
 
         <footer className="text-center border-t border-slate-100 pt-8 mt-12">
           <p className="text-slate-400 text-[9px] font-bold uppercase tracking-[0.4em]">
-            Literal & Sims 3D Variants
+            Literal & Text-Free Visualization
           </p>
         </footer>
       </div>
